@@ -3,7 +3,7 @@
    ========================================================================= */
 'use strict';
 
-const CACHE_NAME = 'blasrep-cache-v3';
+const CACHE_NAME = 'blasrep-cache-v4';
 const LOCAL_ASSETS = [
   './',
   './index.html',
