@@ -392,6 +392,7 @@ const Store = (() => {
     const idx = priceLists.findIndex(l => l.id === listObj.id);
     if (idx > -1) priceLists[idx] = listObj; else priceLists.push(listObj);
     await IDB.set('priceLists', priceLists);
+    if (window.Sync) Sync.pushPriceList(listObj);
     emit('priceLists');
   }
   async function removePriceList(id) {
@@ -401,10 +402,12 @@ const Store = (() => {
     l.items = [];
     l.updatedAt = Date.now();
     await IDB.set('priceLists', priceLists);
+    if (window.Sync) Sync.pushPriceList(l);
     emit('priceLists');
   }
   async function applyRemotePriceLists(arr) {
-    priceLists = arr.map(l => ({ ...l, items: Array.isArray(l.items) ? l.items : Object.values(l.items || {}) }));
+    const merged = mergeArrays(priceLists, arr);
+    priceLists = merged.map(l => ({ ...l, items: Array.isArray(l.items) ? l.items : Object.values(l.items || {}) }));
     await IDB.set('priceLists', priceLists);
     emit('priceLists');
   }

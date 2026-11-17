@@ -22,7 +22,6 @@ const Sync = (() => {
   const SESSION_KEY = 'blasrep_session_v1';
   const SDK = 'https://www.gstatic.com/firebasejs/10.12.2/';
   const APP_NAME = 'blasrep-app';
-  // Solo se sincronizan órdenes, stock y config. Las listas de precios quedan locales (IndexedDB).
   const COLS = ['orders', 'stock'];
 
   let app = null;
@@ -287,6 +286,16 @@ const Sync = (() => {
     updates.config = clean(cfgMerged);
     Store.applyRemoteConfig(cfgMerged);
 
+    const remoteLists = Object.values(remote.priceLists || {});
+    const remoteListMap = {};
+    remoteLists.forEach(l => { if (l && l.id) remoteListMap[l.id] = l; });
+    const mergedLists = Store.mergeArrays(Store.rawPriceLists(), remoteLists);
+    mergedLists.forEach(l => {
+      const r = remoteListMap[l.id];
+      if (!r || (l.updatedAt || 0) > (r.updatedAt || 0)) updates[`priceLists/${l.id}`] = clean(l);
+    });
+    await Store.applyRemotePriceLists(mergedLists);
+
     await root.update(updates);
   }
 
@@ -297,6 +306,9 @@ const Sync = (() => {
     root.child('config').on('value', s => {
       const v = s.val();
       if (v) Store.applyRemoteConfig(v);
+    });
+    root.child('priceLists').on('value', s => {
+      Store.applyRemotePriceLists(Object.values(s.val() || {}));
     });
     infoRef = db.ref('.info/connected');
     infoRef.on('value', s => {
@@ -323,6 +335,7 @@ const Sync = (() => {
       if (root) {
         COLS.forEach(c => root.child(c).off());
         root.child('config').off();
+        root.child('priceLists').off();
       }
       if (infoRef) infoRef.off();
     } catch (e) {
@@ -408,11 +421,17 @@ const Sync = (() => {
     }
   }
 
+  function pushPriceList(l) {
+    if (!root) return;
+    root.child(`priceLists/${l.id}`).set(clean(l)).catch(report);
+  }
+
   async function pushAll() {
     if (!root) return;
     const updates = {};
     COLS.forEach(col => Store.raw(col).forEach(it => { updates[`${col}/${it.id}`] = clean(it); }));
     updates.config = clean(Store.config);
+    Store.rawPriceLists().forEach(l => { updates[`priceLists/${l.id}`] = clean(l); });
     await root.update(updates);
   }
 
@@ -448,6 +467,6 @@ const Sync = (() => {
     get userEmail() { const u = currentUser(); return u ? u.email : ''; },
     get loggedIn() { return !!currentUser(); },
     getSaved, isConfigured, parseConfig, sanitizeCode, connect, login, resetPassword, signOut, disconnect,
-    onStatus, onLock, pushItem, pushConfig, pushAll, autoStart
+    onStatus, onLock, pushItem, pushConfig, pushPriceList, pushAll, autoStart
   };
 })();
