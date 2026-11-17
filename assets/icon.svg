@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <circle cx="256" cy="256" r="248" fill="#18181b"/>
+  <text x="256" y="255" text-anchor="middle" fill="#ffffff" font-family="Poppins, Arial, Helvetica, sans-serif" font-weight="900" font-size="210" letter-spacing="-10">BS</text>
+  <rect x="64" y="280" width="384" height="14" rx="7" fill="#ffffff"/>
+  <text x="256" y="340" text-anchor="middle" fill="#ffffff" font-family="Poppins, Arial, Helvetica, sans-serif" font-weight="700" font-size="34" letter-spacing="5">BLAS</text>
+  <text x="256" y="384" text-anchor="middle" fill="#ffffff" font-family="Poppins, Arial, Helvetica, sans-serif" font-weight="700" font-size="34" letter-spacing="4">REPARACIONES</text>
+</svg>

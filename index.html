@@ -1,0 +1,730 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#111827">
+  <meta name="description" content="Sistema de gestión del servicio técnico BLAS REPARACIONES: órdenes, presupuestos, registro y stock.">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <title>BLAS REPARACIONES · Gestión de Taller</title>
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="assets/icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="assets/icon.svg">
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800;900&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: { sans: ['Poppins', 'ui-sans-serif', 'system-ui', 'sans-serif'] }
+        }
+      }
+    };
+  </script>
+  <link rel="stylesheet" href="css/styles.css">
+
+  <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js" defer></script>
+  <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js" defer></script>
+  <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js" defer></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js" defer></script>
+  <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.min.js" defer></script>
+
+  <script src="js/store.js" defer></script>
+  <script src="js/sync.js" defer></script>
+  <script src="js/pattern.js" defer></script>
+  <script src="js/boleta.js" defer></script>
+  <script src="js/presupuesto.js" defer></script>
+  <script src="js/registro.js" defer></script>
+  <script src="js/stock.js" defer></script>
+  <script src="js/app.js" defer></script>
+</head>
+
+<body class="bg-slate-100 text-slate-900 font-sans antialiased auth-locked">
+
+  <!-- ============================== HEADER ============================== -->
+  <header class="app-header sticky top-0 z-30 bg-slate-900 text-white shadow-lg no-print">
+    <div class="max-w-7xl mx-auto px-3 sm:px-6 h-16 flex items-center gap-3">
+      <div class="flex items-center gap-3 min-w-0">
+        <div class="flex items-center justify-center shrink-0">
+          <span id="headerLogoDefault" class="w-9 h-9 rounded-full bg-white text-gray-900 grid place-items-center font-black text-sm shrink-0">BS</span>
+          <img id="headerLogoImg" class="w-10 h-10 object-contain shrink-0" alt="Blas Reparaciones" hidden>
+        </div>
+        <div class="leading-tight min-w-0">
+          <div class="font-extrabold tracking-wide text-sm sm:text-base truncate">BLAS REPARACIONES</div>
+          <div class="text-[11px] text-slate-300/80 hidden sm:block">Servicio técnico · Gestión</div>
+        </div>
+      </div>
+
+      <nav class="hidden md:flex items-center gap-1 ml-6" aria-label="Secciones">
+        <button class="top-tab" data-tab="boleta"><i data-lucide="file-text" class="w-4 h-4"></i>Boleta</button>
+        <button class="top-tab" data-tab="presupuesto"><i data-lucide="calculator" class="w-4 h-4"></i>Presupuestador</button>
+        <button class="top-tab" data-tab="registro"><i data-lucide="clipboard-list" class="w-4 h-4"></i>Registro</button>
+        <button class="top-tab" data-tab="stock"><i data-lucide="package" class="w-4 h-4"></i>Stock</button>
+      </nav>
+
+      <div class="ml-auto flex items-center gap-1.5">
+        <button id="btnSync" class="h-9 px-3 rounded-xl bg-white/10 hover:bg-white/20 flex items-center gap-2 text-sm font-medium transition" title="Sincronización y respaldo">
+          <span id="syncDot" class="w-2.5 h-2.5 rounded-full bg-gray-400"></span>
+          <i data-lucide="cloud" class="w-4 h-4"></i>
+          <span id="syncLabel" class="hidden sm:inline">Solo local</span>
+        </button>
+        <button id="btnSettings" class="h-9 w-9 rounded-xl bg-white/10 hover:bg-white/20 grid place-items-center transition" title="Ajustes del taller" aria-label="Ajustes">
+          <i data-lucide="settings" class="w-4 h-4"></i>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <main class="max-w-7xl mx-auto px-3 sm:px-6 py-4 sm:py-6 pb-28 md:pb-10">
+
+    <!-- ========================= TAB 1: BOLETA ========================= -->
+    <section id="tab-boleta" data-tab-panel="boleta" class="tab-panel">
+      <div class="grid lg:grid-cols-[minmax(0,1fr)_300px] gap-4 lg:gap-6 items-start">
+        <div class="min-w-0">
+          <div class="flex items-center justify-between gap-2 mb-3 no-print">
+            <div id="boletaMode" class="text-xs sm:text-sm"></div>
+            <button id="btnNuevaOrden" class="btn btn-ghost btn-sm"><i data-lucide="rotate-ccw" class="w-4 h-4"></i>Nueva orden</button>
+          </div>
+
+          <div class="boleta-frame">
+            <!-- ======= ÁREA IMPRIMIBLE / CAPTURABLE ======= -->
+            <div id="boleta" class="boleta">
+              <div class="b-sheet">
+                <div class="b-header">
+                  <h2 class="b-title">ORDEN DE REPARACIÓN</h2>
+                  <div class="b-logo-wrap">
+                    <button type="button" id="logoBtn" class="b-logo" title="Tocá para subir tu logo" aria-label="Cambiar logo">
+                      <span id="logoDefault" class="b-logo-default">
+                        <span class="b-logo-bs">BS</span>
+                        <span class="b-logo-line"></span>
+                        <span class="b-logo-sub">BLAS<br>REPARACIONES</span>
+                      </span>
+                      <img id="logoImg" class="b-logo-img" alt="Logo" hidden>
+                    </button>
+                  </div>
+                  <div class="b-meta">
+                    <div class="b-num">
+                      <span class="b-num-label">N°</span>
+                      <input id="fNumero" class="b-num-input" inputmode="numeric" maxlength="8" autocomplete="off" aria-label="Número de orden">
+                    </div>
+                    <div class="b-fecha">
+                      <span class="b-label">FECHA:</span>
+                      <input id="fDia" class="b-box" inputmode="numeric" maxlength="2" placeholder="DD" autocomplete="off" aria-label="Día">
+                      <input id="fMes" class="b-box" inputmode="numeric" maxlength="2" placeholder="MM" autocomplete="off" aria-label="Mes">
+                      <input id="fAnio" class="b-box" inputmode="numeric" maxlength="2" placeholder="AA" autocomplete="off" aria-label="Año">
+                    </div>
+                  </div>
+                </div>
+
+                <div class="b-grid">
+                  <div class="b-row">
+                    <label class="b-field b-grow"><span class="b-label">NOMBRE:</span><input id="fNombre" class="b-input" autocomplete="off" autocapitalize="words"></label>
+                    <label class="b-field b-tel"><span class="b-label">TEL:</span><input id="fTel" class="b-input" type="tel" inputmode="tel" autocomplete="off"></label>
+                  </div>
+                  <div class="b-row">
+                    <label class="b-field b-half"><span class="b-label">MODELO:</span><input id="fModelo" class="b-input" autocomplete="off"></label>
+                    <label class="b-field b-half"><span class="b-label">MARCA:</span><input id="fMarca" class="b-input" autocomplete="off"></label>
+                  </div>
+                  <div class="b-row">
+                    <label class="b-field b-col b-grow"><span class="b-label">FALLA A REPARAR:</span><textarea id="fFalla" class="b-area b-area-falla" rows="4"></textarea></label>
+                  </div>
+                  <div class="b-row b-split">
+                    <label class="b-field b-col b-left"><span class="b-label">OBSERVACIONES:</span><textarea id="fObs" class="b-area b-area-obs" rows="5"></textarea></label>
+                    <div class="b-right">
+                      <label class="b-field b-pass"><span class="b-label">CONTRASEÑA:</span><input id="fPass" class="b-input" autocomplete="off"></label>
+                      <div class="b-patron">
+                        <div class="b-patron-head">
+                          <span class="b-label">PATRON</span>
+                          <button type="button" id="btnClearPattern" class="b-clear no-capture no-print" title="Limpiar patrón">limpiar</button>
+                        </div>
+                        <canvas id="patternCanvas" class="b-pattern-canvas" aria-label="Dibujá el patrón de desbloqueo"></canvas>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="b-row b-split">
+                    <ul class="b-clauses">
+                      <li>Los equipos apagados se reciben bajo responsabilidad del cliente.</li>
+                      <li>Si existe una falla adicional será una reparación aparte con otro costo.</li>
+                      <li>La garantía en mano de obra será de 30 días sobre la falla reparada (EN EQUIPOS GOLPEADOS O MOJADOS NO HAY GARANTÍA).</li>
+                      <li>Equipos que son llevados a otros servicios técnicos perderán su garantía.</li>
+                      <li>Para retirar un equipo debe presentar factura original.</li>
+                      <li>Pasados los 60 días corridos de la fecha pactada para la reparación, el local puede disponer del equipo.</li>
+                    </ul>
+                    <div class="b-money">
+                      <div class="b-money-row"><span class="b-money-label">SEÑA</span><input id="fSena" class="b-input b-money-input" inputmode="numeric" autocomplete="off" aria-label="Seña"></div>
+                      <div class="b-money-row"><span class="b-money-label">SALDO</span><input id="fSaldo" class="b-input b-money-input" readonly tabindex="-1" aria-label="Saldo"></div>
+                      <div class="b-money-row"><span class="b-money-label">TOTAL</span><input id="fTotal" class="b-input b-money-input" inputmode="numeric" autocomplete="off" aria-label="Total"></div>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="b-footer">
+                  <div class="b-contact">
+                    <div class="b-ci b-ci-addr">
+                      <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 1.5C7.6 1.5 4 5.1 4 9.5c0 5.9 7.1 12.3 7.4 12.6.4.3.9.3 1.2 0C12.9 21.8 20 15.4 20 9.5c0-4.4-3.6-8-8-8zm0 11.2a3.2 3.2 0 110-6.4 3.2 3.2 0 010 6.4z"/></svg>
+                      <span id="bAddress"></span>
+                    </div>
+                    <div class="b-ci b-ci-wa">
+                      <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z"/></svg>
+                      <span id="bWhatsapp"></span>
+                    </div>
+                    <div class="b-ci b-ci-ig">
+                      <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="1.5" y="1.5" width="21" height="21" rx="6" fill="currentColor"/><rect x="5" y="5" width="14" height="14" rx="4" fill="none" stroke="#fff" stroke-width="1.8"/><circle cx="12" cy="12" r="3.3" fill="none" stroke="#fff" stroke-width="1.8"/><circle cx="16.3" cy="7.7" r="1" fill="#fff"/></svg>
+                      <span id="bInstagram"></span>
+                    </div>
+                  </div>
+                  <button type="button" id="qrBtn" class="b-qr" title="Configurar QR" aria-label="Configurar código QR">
+                    <img id="qrImg" alt="Código QR">
+                  </button>
+                </div>
+              </div>
+            </div>
+            <!-- ======= FIN ÁREA CAPTURABLE ======= -->
+          </div>
+          <p class="text-xs text-gray-500 mt-2 no-print text-center">Tocá el logo para subir el tuyo · Tocá el QR para configurarlo · Dibujá el patrón con el dedo o el mouse.</p>
+        </div>
+
+        <aside class="lg:sticky lg:top-20 space-y-3 no-print">
+          <div class="card p-4 space-y-2.5">
+            <h3 class="font-bold text-gray-900 flex items-center gap-2"><i data-lucide="zap" class="w-4 h-4"></i>Acciones</h3>
+            <button id="btnGuardar" class="btn btn-primary w-full btn-lg"><i data-lucide="save" class="w-5 h-5"></i><span id="btnGuardarLabel">Guardar orden</span></button>
+            <div class="grid grid-cols-2 gap-2">
+              <button id="btnPNG" class="btn btn-secondary"><i data-lucide="download" class="w-4 h-4"></i>PNG</button>
+              <button id="btnCopyImg" class="btn btn-secondary"><i data-lucide="copy" class="w-4 h-4"></i>Copiar</button>
+            </div>
+            <button id="btnWhatsApp" class="btn btn-wa w-full"><i data-lucide="send" class="w-4 h-4"></i>Enviar por WhatsApp</button>
+            <button id="btnPrint" class="btn btn-ghost w-full"><i data-lucide="printer" class="w-4 h-4"></i>Imprimir</button>
+          </div>
+          <div class="card p-4 space-y-3">
+            <div class="flex items-center justify-between gap-2">
+              <h3 class="font-bold text-gray-900 flex items-center gap-1.5 text-sm"><i data-lucide="trending-up" class="w-4 h-4 text-emerald-600"></i>Cálculo de Ganancia (Interno)</h3>
+              <span class="text-[10px] font-semibold uppercase tracking-wide px-2 py-0.5 rounded-full bg-slate-100 text-slate-500">No se imprime</span>
+            </div>
+            <div class="grid grid-cols-2 gap-2.5">
+              <label class="field">
+                <span>Costo repuesto + envío ($)</span>
+                <input id="fCostoInterno" class="input font-semibold" inputmode="numeric" autocomplete="off" placeholder="$ 0">
+              </label>
+              <label class="field">
+                <span>Ganancia neta ($)</span>
+                <input id="fGananciaInterna" class="input font-extrabold text-emerald-700 bg-emerald-50/50 border-emerald-300" inputmode="numeric" autocomplete="off" placeholder="$ 0">
+              </label>
+            </div>
+            <label class="field">
+              <span>Método de cobro de la seña</span>
+              <select id="fSenaMetodo" class="input !h-9 text-xs font-medium">
+                <option value="Efectivo" selected>Efectivo</option>
+                <option value="Transferencia">Transferencia</option>
+                <option value="Mercado Pago">Mercado Pago</option>
+                <option value="Tarjeta">Tarjeta</option>
+              </select>
+            </label>
+            <div class="flex flex-wrap gap-1.5">
+              <button type="button" id="btnGanFormula" class="chip text-xs"><i data-lucide="calculator" class="w-3.5 h-3.5"></i><span id="btnGanFormulaLabel">Fórmula ($30.000)</span></button>
+              <button type="button" id="btnGanManoObra" class="chip text-xs"><i data-lucide="wrench" class="w-3.5 h-3.5"></i>100% Mano de Obra</button>
+            </div>
+            <div id="profitSuggestBox" class="hidden rounded-xl border border-blue-200 bg-blue-50/70 p-2.5 text-xs text-slate-700 space-y-1.5"></div>
+          </div>
+          <div class="card p-4 text-xs text-gray-600 space-y-1.5">
+            <p class="font-semibold text-gray-800 text-sm">Tips</p>
+            <p>• El borrador se guarda solo: si cerrás la app no perdés lo escrito.</p>
+            <p>• Al guardar, el N° de orden avanza automáticamente.</p>
+            <p>• El SALDO se calcula como TOTAL − SEÑA.</p>
+            <p>• Podés descontar un repuesto del stock al guardar.</p>
+          </div>
+        </aside>
+      </div>
+    </section>
+
+    <!-- ====================== TAB 2: PRESUPUESTADOR ===================== -->
+    <section id="tab-presupuesto" data-tab-panel="presupuesto" class="tab-panel hidden">
+      <div class="grid lg:grid-cols-[360px_minmax(0,1fr)] gap-4 lg:gap-6 items-start">
+        <div class="space-y-4 order-2 lg:order-1">
+          <div class="card p-4">
+            <h3 class="font-bold flex items-center gap-2 mb-3"><i data-lucide="upload" class="w-4 h-4"></i>Listas de proveedores</h3>
+            <div id="plDrop" class="dropzone">
+              <i data-lucide="file-up" class="w-8 h-8 text-gray-400"></i>
+              <p class="text-sm text-gray-600 mt-1">Arrastrá o elegí archivos</p>
+              <p class="text-xs text-gray-400">Excel (.xlsx, .xls), CSV o PDF</p>
+              <button id="plPick" class="btn btn-primary btn-sm mt-3"><i data-lucide="folder-open" class="w-4 h-4"></i>Subir lista</button>
+              <input id="plFile" type="file" accept=".xlsx,.xls,.csv,.txt,.pdf,application/pdf,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,text/csv" multiple hidden>
+            </div>
+            <div id="plStatus" class="text-sm mt-3 hidden"></div>
+            <div id="plList" class="space-y-2 mt-3"></div>
+          </div>
+
+          <div class="card p-4">
+            <h3 class="font-bold flex items-center gap-2 mb-3"><i data-lucide="sliders-horizontal" class="w-4 h-4"></i>Parámetros</h3>
+            <div class="grid grid-cols-2 gap-3">
+              <label class="field"><span>Costo de envío</span><input id="pEnvio" class="input" inputmode="numeric"></label>
+              <label class="field"><span>Ganancia / M. de obra</span><input id="pGanancia" class="input" inputmode="numeric"></label>
+            </div>
+            <label class="flex items-start gap-2.5 mt-3 p-2.5 rounded-xl border border-gray-200 bg-gray-50/60 cursor-pointer text-xs text-gray-700">
+              <input id="pRedondeoPsico" type="checkbox" class="w-4 h-4 mt-0.5 accent-gray-900 shrink-0">
+              <span>Restar $1.000 en decenas de mil exactas, ej: $60.000 → $59.000</span>
+            </label>
+            <p class="text-[11px] text-gray-500 mt-3 font-mono bg-gray-50 rounded-lg p-2 leading-relaxed">Precio Final = ⌈(Costo + Envío + Ganancia) / 1000⌉ × 1000</p>
+          </div>
+
+          <div class="card p-4">
+            <h3 class="font-bold flex items-center gap-2 mb-3"><i data-lucide="calculator" class="w-4 h-4"></i>Calculadora manual</h3>
+            <div class="space-y-3">
+              <label class="field"><span>Descripción (repuesto / equipo)</span><input id="mDesc" class="input" placeholder="Ej: Módulo Samsung A30"></label>
+              <label class="field"><span>Costo del repuesto</span><input id="mCost" class="input text-lg font-semibold" inputmode="numeric" placeholder="Ej: 44100"></label>
+              <div class="rounded-xl bg-gray-900 text-white p-3.5">
+                <div id="mBreakdown" class="text-xs text-gray-300"></div>
+                <div class="flex items-end justify-between mt-1">
+                  <span class="text-xs uppercase tracking-wide text-gray-400">Precio final</span>
+                  <span id="mFinal" class="text-2xl font-extrabold">$ 0</span>
+                </div>
+              </div>
+              <div class="grid grid-cols-2 gap-2">
+                <button id="mCopy" class="btn btn-wa btn-sm"><i data-lucide="message-circle" class="w-4 h-4"></i>Copiar WA</button>
+                <button id="mBoleta" class="btn btn-secondary btn-sm"><i data-lucide="file-input" class="w-4 h-4"></i>Pasar a boleta</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="order-1 lg:order-2 min-w-0">
+          <div class="card p-3 sm:p-4 sticky top-16 z-10">
+            <div class="relative">
+              <i data-lucide="search" class="w-5 h-5 absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none"></i>
+              <input id="pSearch" type="search" class="input pl-11 pr-11 h-12 text-base" placeholder='Buscar modelo o repuesto… (ej: "A30 modulo", "G15")' autocomplete="off">
+              <button id="pClear" class="absolute right-2 top-1/2 -translate-y-1/2 icon-btn" aria-label="Limpiar búsqueda"><i data-lucide="x" class="w-4 h-4"></i></button>
+            </div>
+            <div class="flex items-center justify-between mt-2 text-xs text-gray-500 gap-2">
+              <span id="pResultsInfo"></span>
+              <span id="pIndexCount" class="shrink-0"></span>
+            </div>
+          </div>
+          <div id="pResults" class="space-y-3 mt-3"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ======================== TAB 3: REGISTRO ========================= -->
+    <section id="tab-registro" data-tab-panel="registro" class="tab-panel hidden">
+      <div class="flex flex-wrap items-end justify-between gap-3 mb-3">
+        <div>
+          <h2 class="text-xl sm:text-2xl font-extrabold">Registro de reparaciones</h2>
+          <div id="rStats" class="text-xs sm:text-sm text-gray-600 flex flex-wrap gap-x-2 mt-0.5"></div>
+        </div>
+        <div class="flex items-center gap-2 flex-wrap">
+          <div class="flex items-center gap-1.5 bg-white border border-slate-200 rounded-xl px-2.5 h-9 shadow-sm">
+            <i data-lucide="calendar" class="w-4 h-4 text-slate-500 shrink-0"></i>
+            <select id="rMonthFilter" class="bg-transparent text-xs sm:text-sm font-semibold text-slate-800 focus:outline-none cursor-pointer pr-1" aria-label="Filtrar por mes y año"></select>
+          </div>
+          <button id="rExport" class="btn btn-ghost btn-sm"><i data-lucide="file-spreadsheet" class="w-4 h-4"></i>Exportar Excel</button>
+        </div>
+      </div>
+      <div id="rFinanceCards" class="grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3 mb-3"></div>
+      <div class="card p-3 sm:p-4 mb-3">
+        <div class="relative">
+          <i data-lucide="search" class="w-5 h-5 absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none"></i>
+          <input id="rSearch" type="search" class="input pl-11 h-11" placeholder="Buscar por N° de boleta, nombre, teléfono o modelo…" autocomplete="off">
+        </div>
+        <div id="rChips" class="flex gap-2 mt-3 overflow-x-auto pb-1 no-scrollbar"></div>
+      </div>
+
+      <div class="hidden md:block card overflow-hidden">
+        <div id="rTableWrap" class="overflow-x-auto">
+          <table class="w-full text-sm">
+            <thead class="bg-gray-50 text-gray-500 text-xs uppercase tracking-wide">
+              <tr>
+                <th class="px-3 py-2.5 text-left">N°</th>
+                <th class="px-3 py-2.5 text-left">Fecha</th>
+                <th class="px-3 py-2.5 text-left">Cliente</th>
+                <th class="px-3 py-2.5 text-left">Equipo / Falla</th>
+                <th class="px-3 py-2.5 text-left">Importe</th>
+                <th class="px-3 py-2.5 text-left">Estado</th>
+                <th class="px-3 py-2.5 text-right">Acciones</th>
+              </tr>
+            </thead>
+            <tbody id="rTableBody"></tbody>
+          </table>
+        </div>
+        <div id="rEmptyDesk"></div>
+      </div>
+      <div id="rCards" class="md:hidden space-y-3"></div>
+    </section>
+
+    <!-- ========================== TAB 4: STOCK ========================== -->
+    <section id="tab-stock" data-tab-panel="stock" class="tab-panel hidden">
+      <div class="flex flex-wrap items-end justify-between gap-3 mb-3">
+        <h2 class="text-xl sm:text-2xl font-extrabold">Stock de productos y repuestos</h2>
+        <div class="flex gap-2">
+          <button id="sExport" class="btn btn-ghost btn-sm"><i data-lucide="file-spreadsheet" class="w-4 h-4"></i><span class="hidden sm:inline">Exportar</span></button>
+          <button id="sAdd" class="btn btn-primary btn-sm"><i data-lucide="plus" class="w-4 h-4"></i>Nuevo producto</button>
+        </div>
+      </div>
+      <div id="sStats" class="grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3 mb-3"></div>
+      <div class="card p-3 sm:p-4 mb-3 flex flex-col sm:flex-row gap-2">
+        <div class="relative flex-1">
+          <i data-lucide="search" class="w-5 h-5 absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none"></i>
+          <input id="sSearch" type="search" class="input pl-11 h-11" placeholder="Buscar código, categoría o modelo…" autocomplete="off">
+        </div>
+        <div class="flex gap-2">
+          <select id="sCat" class="input h-11 flex-1 sm:w-56"></select>
+          <button id="sLow" class="chip h-11 shrink-0"><i data-lucide="triangle-alert" class="w-4 h-4"></i>Bajo <span class="chip-n">0</span></button>
+        </div>
+      </div>
+      <div class="hidden md:block card overflow-hidden">
+        <div id="sTableWrap" class="overflow-x-auto">
+          <table class="w-full text-sm">
+            <thead class="bg-gray-50 text-gray-500 text-xs uppercase tracking-wide">
+              <tr>
+                <th class="px-3 py-2.5 text-left">Código</th>
+                <th class="px-3 py-2.5 text-left">Categoría</th>
+                <th class="px-3 py-2.5 text-left">Marca / Modelo compatible</th>
+                <th class="px-3 py-2.5 text-left">Cantidad</th>
+                <th class="px-3 py-2.5 text-center">Mín.</th>
+                <th class="px-3 py-2.5 text-right">Costo</th>
+                <th class="px-3 py-2.5 text-right">Venta</th>
+                <th class="px-3 py-2.5"></th>
+              </tr>
+            </thead>
+            <tbody id="sTableBody"></tbody>
+          </table>
+        </div>
+        <div id="sEmptyDesk"></div>
+      </div>
+      <div id="sCards" class="md:hidden space-y-3"></div>
+    </section>
+  </main>
+
+  <!-- ====================== NAVEGACIÓN INFERIOR (MÓVIL) ====================== -->
+  <nav class="bottom-nav md:hidden no-print" aria-label="Secciones">
+    <button data-tab="boleta"><i data-lucide="file-text"></i><span>Boleta</span></button>
+    <button data-tab="presupuesto"><i data-lucide="calculator"></i><span>Presupuesto</span></button>
+    <button data-tab="registro"><i data-lucide="clipboard-list"></i><span>Registro</span></button>
+    <button data-tab="stock"><i data-lucide="package"></i><span>Stock</span></button>
+  </nav>
+
+  <!-- ======================= PANTALLA DE BLOQUEO (AUTH) ======================= -->
+  <div id="authLockScreen" class="auth-lock fixed inset-0 z-[80] bg-slate-900 text-white no-print" role="dialog" aria-modal="true" aria-labelledby="authLockTitle">
+    <div class="min-h-full w-full flex items-center justify-center px-5 py-10">
+      <div class="w-full max-w-sm">
+        <div class="flex flex-col items-center text-center mb-7">
+          <div class="w-24 h-24 grid place-items-center mb-4">
+            <span id="authLogoDefault" class="w-20 h-20 rounded-full bg-white text-slate-900 grid place-items-center font-black text-3xl shadow-lg">BS</span>
+            <img id="authLogoImg" class="w-24 h-24 object-contain" alt="Blas Reparaciones" hidden>
+          </div>
+          <h1 id="authLockTitle" class="text-xl font-extrabold tracking-wide">BLAS REPARACIONES</h1>
+          <p class="text-sm text-slate-400 mt-1">Ingresá con el usuario del taller para continuar</p>
+        </div>
+
+        <div id="authChecking" class="flex flex-col items-center gap-3 py-6 text-slate-300 text-sm">
+          <span class="spinner"></span>
+          <span>Verificando sesión…</span>
+        </div>
+
+        <form id="authLockForm" class="auth-card space-y-4 hidden" novalidate>
+          <label class="block">
+            <span class="block text-xs font-semibold text-slate-300 mb-1.5">Email</span>
+            <input id="authEmail" type="email" class="auth-input" placeholder="taller@ejemplo.com" autocomplete="username" inputmode="email" required>
+          </label>
+          <label class="block">
+            <span class="block text-xs font-semibold text-slate-300 mb-1.5">Contraseña</span>
+            <span class="relative block">
+              <input id="authPassword" type="password" class="auth-input pr-12" placeholder="••••••••" autocomplete="current-password" required>
+              <button type="button" id="authTogglePass" class="absolute right-1.5 top-1/2 -translate-y-1/2 w-9 h-9 grid place-items-center rounded-lg text-slate-400 hover:text-white hover:bg-white/10" aria-label="Mostrar contraseña">
+                <i data-lucide="eye" class="w-4 h-4"></i>
+              </button>
+            </span>
+          </label>
+          <p id="authError" class="hidden text-sm text-red-300 bg-red-500/10 border border-red-500/30 rounded-xl px-3 py-2" role="alert"></p>
+          <button type="submit" id="authSubmit" class="btn w-full btn-lg auth-submit"><i data-lucide="log-in" class="w-5 h-5"></i>Ingresar</button>
+          <button type="button" id="authForgot" class="w-full text-xs text-slate-400 hover:text-white underline-offset-2 hover:underline">Olvidé mi contraseña</button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <div id="toasts" class="fixed z-[100] left-1/2 -translate-x-1/2 bottom-24 md:bottom-6 flex flex-col items-center gap-2 pointer-events-none w-[92vw] max-w-sm no-print"></div>
+
+  <input id="logoFile" type="file" accept="image/*" hidden>
+
+  <!-- ================================ MODALES ================================ -->
+
+  <!-- Guardar orden -->
+  <dialog id="modalSave" class="modal">
+    <div class="modal-box">
+      <div class="modal-head"><h3><i data-lucide="save" class="w-5 h-5"></i>Guardar orden</h3><button class="icon-btn" data-close aria-label="Cerrar"><i data-lucide="x" class="w-5 h-5"></i></button></div>
+      <div class="modal-body space-y-3">
+        <div id="saveSummary" class="rounded-xl bg-gray-50 p-3 text-sm"></div>
+        <label id="saveDeductWrap" class="flex items-center gap-2.5 p-3 rounded-xl border border-gray-200 cursor-pointer">
+          <input id="saveDeduct" type="checkbox" class="w-5 h-5 accent-gray-900">
+          <span class="text-sm font-medium">Descontar un repuesto del stock</span>
+        </label>
+        <p id="saveNoStock" class="text-xs text-gray-500">No hay productos en stock para descontar.</p>
+        <div id="saveStockBox" class="space-y-2 hidden">
+          <input id="saveStockSearch" class="input" placeholder="Filtrar repuesto…" autocomplete="off">
+          <select id="saveStockSelect" class="input" size="5"></select>
+          <label class="field"><span>Cantidad</span><input id="saveStockQty" class="input w-28" type="number" min="1" value="1"></label>
+        </div>
+      </div>
+      <div class="modal-foot">
+        <button class="btn btn-ghost" data-close>Cancelar</button>
+        <button id="saveConfirm" class="btn btn-primary"><i data-lucide="check" class="w-4 h-4"></i>Guardar</button>
+      </div>
+    </div>
+  </dialog>
+
+  <!-- WhatsApp -->
+  <dialog id="modalWhatsApp" class="modal">
+    <div class="modal-box">
+      <div class="modal-head"><h3><i data-lucide="send" class="w-5 h-5"></i>Enviar por WhatsApp</h3><button class="icon-btn" data-close aria-label="Cerrar"><i data-lucide="x" class="w-5 h-5"></i></button></div>
+      <div class="modal-body space-y-3">
+        <p class="text-sm text-gray-600">Destino: <b id="waNumber" class="text-gray-900"></b></p>
+        <pre id="waPreview" class="text-xs bg-emerald-50 border border-emerald-100 rounded-xl p-3 whitespace-pre-wrap max-h-48 overflow-auto font-sans"></pre>
+        <ol class="text-xs text-gray-600 list-decimal pl-4 space-y-1">
+          <li><b>Copiá</b> (PC) o <b>compartí</b> (celular) la imagen de la boleta.</li>
+          <li><b>Abrí el chat</b> con el resumen y pegá/adjuntá la imagen.</li>
+        </ol>
+        <div class="grid grid-cols-2 gap-2">
+          <button id="waCopyImg" class="btn btn-secondary"><i data-lucide="copy" class="w-4 h-4"></i>Copiar imagen</button>
+          <button id="waShareBtn" class="btn btn-secondary"><i data-lucide="share-2" class="w-4 h-4"></i>Compartir imagen</button>
+          <button id="waDownload" class="btn btn-secondary"><i data-lucide="download" class="w-4 h-4"></i>Descargar PNG</button>
+          <button id="waCopyText" class="btn btn-secondary"><i data-lucide="text" class="w-4 h-4"></i>Copiar texto</button>
+        </div>
+        <button id="waOpenChat" class="btn btn-wa w-full btn-lg"><i data-lucide="message-circle" class="w-5 h-5"></i>Abrir chat con resumen</button>
+      </div>
+    </div>
+  </dialog>
+
+  <!-- Pago -->
+  <dialog id="modalPago" class="modal">
+    <div class="modal-box">
+      <div class="modal-head"><h3><i data-lucide="wallet" class="w-5 h-5"></i>Registrar pago</h3><button class="icon-btn" data-close aria-label="Cerrar"><i data-lucide="x" class="w-5 h-5"></i></button></div>
+      <div class="modal-body space-y-3">
+        <div id="pagoInfo" class="rounded-xl bg-gray-50 p-3"></div>
+        <div class="grid grid-cols-2 gap-3">
+          <label class="field"><span>Monto</span><input id="pagoMonto" class="input text-lg font-semibold" inputmode="numeric"></label>
+          <label class="field"><span>Método</span>
+            <select id="pagoMetodo" class="input"><option>Efectivo</option><option>Transferencia</option><option>Tarjeta</option><option>Mercado Pago</option></select>
+          </label>
+        </div>
+        <label class="flex items-center gap-2.5 text-sm"><input id="pagoEntregado" type="checkbox" class="w-5 h-5 accent-gray-900">Marcar como "Entregado"</label>
+      </div>
+      <div class="modal-foot">
+        <button class="btn btn-ghost" data-close>Cancelar</button>
+        <button id="pagoConfirm" class="btn btn-primary"><i data-lucide="check" class="w-4 h-4"></i>Registrar</button>
+      </div>
+    </div>
+  </dialog>
+
+  <!-- Stock item -->
+  <dialog id="modalStock" class="modal">
+    <div class="modal-box">
+      <div class="modal-head"><h3><i data-lucide="package" class="w-5 h-5"></i><span id="stTitle">Nuevo producto</span></h3><button class="icon-btn" data-close aria-label="Cerrar"><i data-lucide="x" class="w-5 h-5"></i></button></div>
+      <div class="modal-body grid grid-cols-2 gap-3">
+        <label class="field"><span>Código / SKU</span><input id="stSku" class="input" autocomplete="off" placeholder="Opcional"></label>
+        <label class="field"><span>Categoría *</span><input id="stCat" class="input" list="stCatList" autocomplete="off" placeholder="Ej: Baterías"></label>
+        <datalist id="stCatList"></datalist>
+        <label class="field col-span-2"><span>Marca / Modelo compatible *</span><input id="stModelo" class="input" autocomplete="off" placeholder="Ej: Samsung A30 / A50"></label>
+        <label class="field"><span>Cantidad disponible</span><input id="stCant" class="input" type="number" min="0" inputmode="numeric"></label>
+        <label class="field"><span>Stock mínimo</span><input id="stMin" class="input" type="number" min="0" inputmode="numeric"></label>
+        <label class="field"><span>Costo</span><input id="stCosto" class="input" inputmode="numeric" placeholder="$"></label>
+        <label class="field"><span>Precio de venta</span><input id="stPrecio" class="input" inputmode="numeric" placeholder="$"></label>
+        <p id="stSuggest" class="col-span-2 text-xs text-gray-500"></p>
+      </div>
+      <div class="modal-foot">
+        <button class="btn btn-ghost" data-close>Cancelar</button>
+        <button id="stSave" class="btn btn-primary"><i data-lucide="check" class="w-4 h-4"></i>Guardar</button>
+      </div>
+    </div>
+  </dialog>
+
+  <!-- Presupuesto -> Boleta -->
+  <dialog id="modalToBoleta" class="modal">
+    <div class="modal-box">
+      <div class="modal-head"><h3><i data-lucide="file-input" class="w-5 h-5"></i>Pasar a boleta</h3><button class="icon-btn" data-close aria-label="Cerrar"><i data-lucide="x" class="w-5 h-5"></i></button></div>
+      <div class="modal-body space-y-3">
+        <p class="text-xs text-gray-500">Repuesto: <b id="tbRepuesto" class="text-gray-800"></b></p>
+        <div class="grid grid-cols-2 gap-3">
+          <label class="field"><span>Modelo</span><input id="tbModelo" class="input" autocomplete="off"></label>
+          <label class="field"><span>Marca</span><input id="tbMarca" class="input" autocomplete="off"></label>
+        </div>
+        <label class="field"><span>Falla a reparar</span><input id="tbFalla" class="input" autocomplete="off"></label>
+        <label class="field"><span>Total</span><input id="tbTotal" class="input text-lg font-bold" inputmode="numeric"></label>
+      </div>
+      <div class="modal-foot">
+        <button class="btn btn-ghost" data-close>Cancelar</button>
+        <button id="tbConfirm" class="btn btn-primary"><i data-lucide="arrow-right" class="w-4 h-4"></i>Cargar en boleta</button>
+      </div>
+    </div>
+  </dialog>
+
+  <!-- Ajustes -->
+  <dialog id="modalSettings" class="modal">
+    <div class="modal-box modal-lg">
+      <div class="modal-head"><h3><i data-lucide="settings" class="w-5 h-5"></i>Ajustes del taller</h3><button class="icon-btn" data-close aria-label="Cerrar"><i data-lucide="x" class="w-5 h-5"></i></button></div>
+      <div class="modal-body space-y-5">
+        <section>
+          <h4 class="modal-section">Numeración de boletas</h4>
+          <div class="grid grid-cols-2 gap-3">
+            <label class="field"><span>Último número usado</span><input id="cfgLastNumber" class="input font-mono" type="number" min="0" inputmode="numeric"></label>
+            <label class="field"><span>Prefijo WhatsApp</span><input id="cfgPrefix" class="input font-mono" inputmode="numeric" placeholder="549"></label>
+          </div>
+          <p class="text-xs text-gray-500 mt-1.5">La próxima orden usará el número siguiente (ej: último 250 → N° 00000251).</p>
+        </section>
+        <section>
+          <h4 class="modal-section">Datos del pie de boleta</h4>
+          <div class="space-y-3">
+            <label class="field"><span>Dirección</span><input id="cfgAddress" class="input"></label>
+            <div class="grid grid-cols-2 gap-3">
+              <label class="field"><span>WhatsApp</span><input id="cfgWhatsapp" class="input"></label>
+              <label class="field"><span>Instagram</span><input id="cfgInstagram" class="input"></label>
+            </div>
+          </div>
+        </section>
+        <section>
+          <h4 class="modal-section">Logo</h4>
+          <div class="flex items-center gap-3">
+            <div id="cfgLogoPreview" class="w-16 h-16 rounded-full bg-gray-800 grid place-items-center overflow-hidden shrink-0"></div>
+            <div class="flex flex-wrap gap-2">
+              <button id="cfgLogoUpload" class="btn btn-secondary btn-sm"><i data-lucide="image-up" class="w-4 h-4"></i>Subir logo</button>
+              <button id="cfgLogoReset" class="btn btn-ghost btn-sm"><i data-lucide="rotate-ccw" class="w-4 h-4"></i>Usar logo BS</button>
+            </div>
+            <input id="cfgLogoFile" type="file" accept="image/*" hidden>
+          </div>
+        </section>
+        <section>
+          <h4 class="modal-section">Código QR</h4>
+          <div class="flex gap-4 items-start">
+            <div id="cfgQrPreview" class="w-24 h-24 rounded-xl border border-gray-200 bg-white grid place-items-center overflow-hidden shrink-0 p-1"></div>
+            <div class="flex-1 space-y-2 min-w-0">
+              <label class="flex items-center gap-2 text-sm"><input type="radio" name="cfgQrMode" value="auto" class="accent-gray-900">Generar automáticamente</label>
+              <label class="flex items-center gap-2 text-sm"><input type="radio" name="cfgQrMode" value="custom" class="accent-gray-900">Subir mi propio QR</label>
+              <div id="cfgQrAutoBox">
+                <label class="field"><span>Enlace del QR</span><input id="cfgQrTarget" class="input text-sm" placeholder="https://wa.me/5492255551419"></label>
+                <p class="text-[11px] text-gray-500 mt-1">Ej: https://wa.me/5492255551419 o https://instagram.com/blas.reparaciones</p>
+              </div>
+              <div id="cfgQrCustomBox" class="hidden">
+                <button id="cfgQrUpload" class="btn btn-secondary btn-sm"><i data-lucide="image-up" class="w-4 h-4"></i>Elegir imagen QR</button>
+                <input id="cfgQrFile" type="file" accept="image/*" hidden>
+              </div>
+            </div>
+          </div>
+        </section>
+      </div>
+      <div class="modal-foot">
+        <button class="btn btn-ghost" data-close>Cancelar</button>
+        <button id="cfgSave" class="btn btn-primary"><i data-lucide="check" class="w-4 h-4"></i>Guardar ajustes</button>
+      </div>
+    </div>
+  </dialog>
+
+  <!-- Sincronización -->
+  <dialog id="modalSync" class="modal">
+    <div class="modal-box modal-lg">
+      <div class="modal-head"><h3><i data-lucide="cloud" class="w-5 h-5"></i>Sincronización multi-dispositivo (Firebase)</h3><button class="icon-btn" data-close aria-label="Cerrar"><i data-lucide="x" class="w-5 h-5"></i></button></div>
+      <div class="modal-body space-y-5">
+        <div id="syncStatusBox" class="flex items-center gap-2 text-sm rounded-xl bg-gray-50 p-3"></div>
+
+        <section class="space-y-3">
+          <label class="field"><span>Configuración de Firebase (viene precargada; cambiala solo si usás otro proyecto)</span>
+            <textarea id="syncConfig" class="input font-mono text-xs h-40" spellcheck="false" placeholder='const firebaseConfig = {
+  apiKey: "AIza...",
+  authDomain: "tu-proyecto.firebaseapp.com",
+  databaseURL: "https://tu-proyecto-default-rtdb.firebaseio.com",
+  projectId: "tu-proyecto",
+  storageBucket: "tu-proyecto.appspot.com",
+  messagingSenderId: "123456789",
+  appId: "1:123:web:abc"
+};'></textarea>
+          </label>
+          <label class="field"><span>Código del taller (igual en los 3 dispositivos)</span><input id="syncCode" class="input font-mono" placeholder="blas-reparaciones" autocomplete="off"></label>
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <label class="field"><span>Email del taller</span><input id="syncEmail" type="email" class="input" placeholder="taller@ejemplo.com" autocomplete="username" inputmode="email"></label>
+            <label class="field"><span>Contraseña</span><input id="syncPassword" type="password" class="input" placeholder="••••••••" autocomplete="current-password"></label>
+          </div>
+          <div class="flex flex-wrap gap-2">
+            <button id="syncConnect" class="btn btn-primary"><i data-lucide="refresh-cw" class="w-4 h-4"></i>Conectar y sincronizar</button>
+            <button id="syncLogout" class="btn btn-secondary hidden"><i data-lucide="log-out" class="w-4 h-4"></i>Cerrar sesión</button>
+            <button id="syncDisconnect" class="btn btn-ghost hidden"><i data-lucide="cloud-off" class="w-4 h-4"></i>Desactivar</button>
+          </div>
+          <details class="text-xs text-gray-600 bg-gray-50 rounded-xl p-3">
+            <summary class="font-semibold cursor-pointer text-gray-800">¿Cómo configurarlo? (5 minutos)</summary>
+            <ol class="list-decimal pl-4 mt-2 space-y-1.5">
+              <li>Entrá a <b>console.firebase.google.com</b> y creá un proyecto.</li>
+              <li>En <b>Compilación → Realtime Database</b> creá una base de datos.</li>
+              <li>En <b>Compilación → Authentication → Sign-in method</b> (Método de acceso) habilitá <b>Correo electrónico/contraseña</b>.</li>
+              <li>En <b>Authentication → Users</b> tocá <b>Agregar usuario</b> y creá el usuario del taller (email + contraseña). Ese mismo usuario se usa en los 2 celulares y la PC.</li>
+              <li>En <b>Realtime Database → Reglas</b> pegá estas reglas seguras (solo usuarios autenticados pueden leer/escribir) y publicá:
+                <pre class="bg-white border rounded-lg p-2 mt-1 overflow-auto">{
+  "rules": {
+    "talleres": {
+      "$codigo": {
+        ".read": "auth != null",
+        ".write": "auth != null"
+      }
+    }
+  }
+}</pre>
+              </li>
+              <li>En <b>Configuración del proyecto → Tus apps</b> agregá una app Web y copiá el <code>firebaseConfig</code>.</li>
+              <li>Pegalo acá con el mismo <b>código de taller</b>, el <b>email</b> y la <b>contraseña</b> del usuario creado, y tocá <b>Conectar</b>.</li>
+              <li>La sesión queda guardada en el dispositivo: no se vuelve a pedir la clave hasta que toques <b>Cerrar sesión</b>.</li>
+            </ol>
+          </details>
+        </section>
+
+        <section>
+          <h4 class="modal-section">Respaldo manual (JSON)</h4>
+          <div class="flex flex-wrap items-center gap-2">
+            <button id="bkExport" class="btn btn-secondary"><i data-lucide="download" class="w-4 h-4"></i>Exportar respaldo</button>
+            <button id="bkImport" class="btn btn-secondary"><i data-lucide="upload" class="w-4 h-4"></i>Importar respaldo</button>
+            <input id="bkFile" type="file" accept="application/json,.json" hidden>
+          </div>
+          <div class="flex gap-4 mt-2 text-sm">
+            <label class="flex items-center gap-1.5"><input type="radio" name="importMode" value="merge" checked class="accent-gray-900">Combinar</label>
+            <label class="flex items-center gap-1.5"><input type="radio" name="importMode" value="replace" class="accent-gray-900">Reemplazar todo</label>
+          </div>
+        </section>
+      </div>
+    </div>
+  </dialog>
+
+  <!-- Editar ganancia interna desde Registro -->
+  <dialog id="modalGanancia" class="modal">
+    <div class="modal-box">
+      <div class="modal-head"><h3><i data-lucide="trending-up" class="w-5 h-5 text-emerald-600"></i>Costo y Ganancia de la Orden</h3><button class="icon-btn" data-close aria-label="Cerrar"><i data-lucide="x" class="w-5 h-5"></i></button></div>
+      <div class="modal-body space-y-3">
+        <div id="ganOrderInfo" class="rounded-xl bg-slate-50 p-3 text-sm"></div>
+        <div class="grid grid-cols-2 gap-3">
+          <label class="field"><span>Costo repuesto + envío ($)</span><input id="ganCostoInput" class="input font-semibold" inputmode="numeric"></label>
+          <label class="field"><span>Ganancia neta ($)</span><input id="ganNetaInput" class="input font-extrabold text-emerald-700 bg-emerald-50/50 border-emerald-300" inputmode="numeric"></label>
+        </div>
+        <div class="flex flex-wrap gap-1.5">
+          <button type="button" id="ganModalFormula" class="chip text-xs"><i data-lucide="calculator" class="w-3.5 h-3.5"></i><span id="ganModalFormulaLabel">Fórmula ($30.000)</span></button>
+          <button type="button" id="ganModalManoObra" class="chip text-xs"><i data-lucide="wrench" class="w-3.5 h-3.5"></i>100% Mano de Obra</button>
+        </div>
+      </div>
+      <div class="modal-foot">
+        <button class="btn btn-ghost" data-close>Cancelar</button>
+        <button id="ganSaveBtn" class="btn btn-primary"><i data-lucide="check" class="w-4 h-4"></i>Guardar ganancia</button>
+      </div>
+    </div>
+  </dialog>
+
+  <!-- Confirmación genérica -->
+  <dialog id="modalConfirm" class="modal">
+    <div class="modal-box max-w-sm">
+      <div class="modal-head"><h3 id="confirmTitle">Confirmar</h3></div>
+      <div class="modal-body"><p id="confirmMsg" class="text-sm text-gray-700"></p></div>
+      <div class="modal-foot">
+        <button id="confirmCancel" class="btn btn-ghost">Cancelar</button>
+        <button id="confirmOk" class="btn btn-primary">Aceptar</button>
+      </div>
+    </div>
+  </dialog>
+
+</body>
+</html>
